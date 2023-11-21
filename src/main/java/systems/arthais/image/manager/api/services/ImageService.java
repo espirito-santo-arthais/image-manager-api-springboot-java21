@@ -15,6 +15,7 @@ import javax.imageio.ImageIO;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import lombok.extern.slf4j.Slf4j;
 import systems.arthais.image.manager.api.exceptions.ImageHeightException;
 import systems.arthais.image.manager.api.exceptions.ImageNotFoundException;
 import systems.arthais.image.manager.api.exceptions.ImageSizeException;
@@ -24,6 +25,7 @@ import systems.arthais.image.manager.api.exceptions.UnsupportedImageFormatExcept
 import systems.arthais.image.manager.api.models.ImageData;
 
 @Service
+@Slf4j
 public class ImageService {
 
 	private static final List<String> ALLOWED_CONTENT_TYPES = Arrays.asList("image/jpeg", "image/png", "image/svg+xml");
@@ -36,22 +38,28 @@ public class ImageService {
 	private static final String BASE_PATH = "C:\\Workspaces\\Growth7\\images\\";
 
 	public UUID uploadImage(MultipartFile imageFile) {
+		log.info("Iniciando o salvamento da imagem...");
+
 		validateImage(imageFile);
 
-		UUID imageId = UUID.randomUUID();
+		UUID id = UUID.randomUUID();
 
 		try {
 			byte[] bytes = imageFile.getBytes();
-			Path path = Paths.get(BASE_PATH + imageId.toString() + getExtension(imageFile.getContentType()));
+			Path path = Paths.get(BASE_PATH + id.toString() + getExtension(imageFile.getContentType()));
 			Files.write(path, bytes);
+			log.info("Imagem salva com sucesso. UUID: {}", id);
 		} catch (Exception ex) {
+			log.error("Erro ao salvar a imagem: {}", ex.getMessage());
 			throw new InternalServerErrorException("Não foi possível salvar a imagem.", ex);
 		}
 
-		return imageId;
+		return id;
 	}
 
 	public void updateImage(UUID id, MultipartFile imageFile) {
+		log.info("Iniciando a substituição da imagem. UUID: {}", id);
+
 		validateImage(imageFile);
 
 		Path path = searchImagePath(id);
@@ -59,32 +67,42 @@ public class ImageService {
 		try {
 			byte[] bytes = imageFile.getBytes();
 			Files.write(path, bytes);
+			log.info("Imagem substituída com sucesso.");
 		} catch (Exception ex) {
+			log.error("Erro ao substituir a imagem: {}", ex.getMessage());
 			throw new InternalServerErrorException("Não foi possível atualizar a imagem.", ex);
 		}
 	}
 
 	public void deleteImage(UUID id) {
+		log.info("Iniciando a exclusão da imagem. UUID: {}", id);
+
 		Path path = searchImagePath(id);
 
 		try {
 			Files.delete(path);
+			log.info("Imagem excluída com sucesso.");
 		} catch (Exception ex) {
+			log.error("Erro ao excluir a imagem: {}", ex.getMessage());
 			throw new InternalServerErrorException("Não foi possível excluir a imagem.", ex);
 		}
 	}
 
 	public ImageData getImage(UUID id) {
+		log.info("Iniciando a obtenção da imagem. UUID: {}", id);
+
 		Path path = searchImagePath(id);
 
 		try {
 			String contentType = Files.probeContentType(path);
 			InputStream imageStream = new FileInputStream(path.toFile());
 
+			log.info("Imagem obtida com sucesso.");
 			return new ImageData(imageStream, contentType);
 		} catch (UnsupportedImageFormatException ex) {
 			throw ex;
 		} catch (Exception ex) {
+			log.error("Erro ao obter a imagem: {}", ex.getMessage());
 			throw new InternalServerErrorException("Não foi possível obter a imagem.", ex);
 		}
 	}
@@ -105,13 +123,18 @@ public class ImageService {
 	}
 
 	private void validateImage(MultipartFile imageFile) {
+		log.info("Iniciando a validação da imagem: {}", imageFile.getOriginalFilename());
 		if (!isContentTypeAllowed(imageFile)) {
-			throw new UnsupportedImageFormatException(
+			UnsupportedImageFormatException unsupportedImageFormatException = new UnsupportedImageFormatException(
 					"O formato de arquivo da imagem não é suportado. Formatos válidos: " + ALLOWED_CONTENT_TYPES);
+			log.warn(unsupportedImageFormatException.getMessage());
+			throw unsupportedImageFormatException;
 		}
 		if (!isSizeValid(imageFile)) {
-			throw new ImageSizeException(
+			ImageSizeException imageSizeException = new ImageSizeException(
 					"A quantidade de bytes da imagem excedeu o limite permitido: " + MAX_FILE_SIZE + " bytes.");
+			log.warn(imageSizeException.getMessage());
+			throw imageSizeException;
 		}
 
 		try {
@@ -120,20 +143,26 @@ public class ImageService {
 			int width = image.getWidth();
 
 			if (!isHeightValid(imageFile, height)) {
-				throw new ImageHeightException(
+				ImageHeightException imageHeightException = new ImageHeightException(
 						"A altura da imagem não está dentro dos limites permitidos. Limites permitidos: "
 								+ ALLOWED_MIN_HEIGHT + " X " + ALLOWED_MAX_HEIGHT + " pixels.");
+				log.warn(imageHeightException.getMessage());
+				throw imageHeightException;
 			}
 			if (!isWidthValid(imageFile, width)) {
-				throw new ImageWidthException(
+				ImageWidthException imageWidthException = new ImageWidthException(
 						"A largura da imagem não está dentro dos limites permitidos. Limites permitidos: "
 								+ ALLOWED_MIN_WIDTH + " X " + ALLOWED_MAX_WIDTH + " pixels.");
+				log.warn(imageWidthException.getMessage());
+				throw imageWidthException;
 			}
+			log.info("Imagem validada com sucesso.");
 		} catch (ImageHeightException ex) {
 			throw ex;
 		} catch (ImageWidthException ex) {
 			throw ex;
 		} catch (Exception ex) {
+			log.error("Erro ao validar a imagem: {}", ex.getMessage());
 			throw new InternalServerErrorException("Não foi possível validar a imagem.", ex);
 		}
 	}
@@ -161,6 +190,9 @@ public class ImageService {
 				return path;
 			}
 		}
-		throw new ImageNotFoundException("A imagem não foi encontrada. id = " + id);
+		ImageNotFoundException imageNotFoundException = new ImageNotFoundException(
+				"A imagem não foi encontrada. id = " + id);
+		log.warn(imageNotFoundException.getMessage());
+		throw imageNotFoundException;
 	}
 }
