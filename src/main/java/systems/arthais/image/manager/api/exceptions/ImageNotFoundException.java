@@ -9,6 +9,6 @@ public class ImageNotFoundException extends RuntimeException {
 	}
 
 	public ImageNotFoundException() {
-		super("A imagem solicitada não foi encontrada.");
+		super("A imagem não foi encontrada.");
 	}
 }
