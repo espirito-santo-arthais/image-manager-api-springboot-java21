@@ -1,15 +1,25 @@
 package systems.arthais.image.manager.api.services;
 
+import java.awt.image.BufferedImage;
+import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.http.ResponseEntity;
+import javax.imageio.ImageIO;
+
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import systems.arthais.image.manager.api.exceptions.ImageHeightException;
+import systems.arthais.image.manager.api.exceptions.ImageNotFoundException;
 import systems.arthais.image.manager.api.exceptions.ImageSizeException;
+import systems.arthais.image.manager.api.exceptions.ImageWidthException;
+import systems.arthais.image.manager.api.exceptions.InternalServerErrorException;
 import systems.arthais.image.manager.api.exceptions.UnsupportedImageFormatException;
 import systems.arthais.image.manager.api.models.ImageData;
 
@@ -17,56 +27,82 @@ import systems.arthais.image.manager.api.models.ImageData;
 public class ImageService {
 
 	private static final List<String> ALLOWED_CONTENT_TYPES = Arrays.asList("image/jpeg", "image/png", "image/svg+xml");
+	private static final List<String> ALLOWED_EXTENSIONS = Arrays.asList(".jpg", ".png", ".svg");
 	private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-	private static final long ALLOWED_MIN_HEIGHT = 800;
-	private static final long ALLOWED_MAX_HEIGHT = 800;
-	private static final long ALLOWED_MIN_WIDTH = 800;
-	private static final long ALLOWED_MAX_WIDTH = 800;
-	private static final long ALLOWED_MIN_DENSITY = 800;
-	private static final long ALLOWED_MAX_DENSITY = 800;
+	private static final long ALLOWED_MIN_HEIGHT = 512;
+	private static final long ALLOWED_MAX_HEIGHT = 4096;
+	private static final long ALLOWED_MIN_WIDTH = 512;
+	private static final long ALLOWED_MAX_WIDTH = 4096;
+	private static final String BASE_PATH = "C:\\Workspaces\\Growth7\\images\\";
 
 	public UUID uploadImage(MultipartFile imageFile) {
 		validateImage(imageFile);
+
 		UUID imageId = UUID.randomUUID();
-		// Lógica para salvar a imagem
-		if (!isContentTypeAllowed(imageFile)) {
-			return ResponseEntity.badRequest()
-					.body("Formato de arquivo não suportado. Formatos válidos: " + ALLOWED_CONTENT_TYPES);
-		}
-		if (!isFileSizeValid(imageFile)) {
-			return ResponseEntity.badRequest()
-					.body("Tamanho do arquivo excede o limite de " + (MAX_FILE_SIZE / 1024 / 1024) + "MB.");
+
+		try {
+			byte[] bytes = imageFile.getBytes();
+			Path path = Paths.get(BASE_PATH + imageId.toString() + getExtension(imageFile.getContentType()));
+			Files.write(path, bytes);
+		} catch (Exception ex) {
+			throw new InternalServerErrorException("Não foi possível salvar a imagem.", ex);
 		}
 
-		UUID imageId = UUID.randomUUID(); // Gerar UUID único para a imagem
-		// Lógica para processar o upload da imagem
 		return imageId;
 	}
 
 	public void updateImage(UUID id, MultipartFile imageFile) {
 		validateImage(imageFile);
-		// Lógica para atualizar a imagem
 
-		// Lógica para atualizar a imagem com base no UUID
+		Path path = searchImagePath(id);
+
+		try {
+			byte[] bytes = imageFile.getBytes();
+			Files.write(path, bytes);
+		} catch (Exception ex) {
+			throw new InternalServerErrorException("Não foi possível atualizar a imagem.", ex);
+		}
 	}
 
 	public void deleteImage(UUID id) {
-		// Verificar se a imagem existe
-		// Lógica para excluir a imagem
+		Path path = searchImagePath(id);
+
+		try {
+			Files.delete(path);
+		} catch (Exception ex) {
+			throw new InternalServerErrorException("Não foi possível excluir a imagem.", ex);
+		}
 	}
 
 	public ImageData getImage(UUID id) {
-		// Verificar se a imagem existe
-		// Lógica para recuperar a imagem
-		// Lógica para recuperar a imagem com base no UUID
-		String contentType = "";
-		InputStream imageStream = null; // Obter o InputStream da imagem
-		// Sua lógica para encontrar a imagem
-		// Retorna um novo objeto ImageData com os dados da imagem e o tipo de conteúdo
-		return new ImageData(imageStream, contentType); // Exemplo
+		Path path = searchImagePath(id);
+
+		try {
+			String contentType = Files.probeContentType(path);
+			InputStream imageStream = new FileInputStream(path.toFile());
+
+			return new ImageData(imageStream, contentType);
+		} catch (UnsupportedImageFormatException ex) {
+			throw ex;
+		} catch (Exception ex) {
+			throw new InternalServerErrorException("Não foi possível obter a imagem.", ex);
+		}
 	}
 
 	// Métodos privados
+
+	private String getExtension(String contentType) {
+		switch (contentType) {
+		case "image/jpeg":
+			return ".jpg";
+		case "image/png":
+			return ".png";
+		case "image/svg+xml":
+			return ".svg";
+		default:
+			throw new UnsupportedImageFormatException();
+		}
+	}
 
 	private void validateImage(MultipartFile imageFile) {
 		if (!isContentTypeAllowed(imageFile)) {
@@ -77,17 +113,28 @@ public class ImageService {
 			throw new ImageSizeException(
 					"A quantidade de bytes da imagem excedeu o limite permitido: " + MAX_FILE_SIZE + " bytes.");
 		}
-		if (!isHeightValid(imageFile)) {
-			throw new ImageSizeException(
-					"A altura da imagem não está dentro dos limites permitidos. Limites permitidos: " + ALLOWED_MIN_HEIGHT + " X " + ALLOWED_MAX_HEIGHT + "pixels.");
-		}
-		if (!isWidthValid(imageFile)) {
-			throw new ImageSizeException(
-					"A largura da imagem não está dentro dos limites permitidos. Limites permitidos: " + ALLOWED_MIN_WIDTH + " X " + ALLOWED_MAX_WIDTH + "pixels.");
-		}
-		if (!isDensityValid(imageFile)) {
-			throw new ImageSizeException(
-					"A densidade da imagem não está dentro dos limites permitidos. Limites permitidos: " + ALLOWED_MIN_DENSITY + " X " + ALLOWED_MAX_DENSITY + "pixels.");
+
+		try {
+			BufferedImage image = ImageIO.read(imageFile.getInputStream());
+			int height = image.getHeight();
+			int width = image.getWidth();
+
+			if (!isHeightValid(imageFile, height)) {
+				throw new ImageHeightException(
+						"A altura da imagem não está dentro dos limites permitidos. Limites permitidos: "
+								+ ALLOWED_MIN_HEIGHT + " X " + ALLOWED_MAX_HEIGHT + " pixels.");
+			}
+			if (!isWidthValid(imageFile, width)) {
+				throw new ImageWidthException(
+						"A largura da imagem não está dentro dos limites permitidos. Limites permitidos: "
+								+ ALLOWED_MIN_WIDTH + " X " + ALLOWED_MAX_WIDTH + " pixels.");
+			}
+		} catch (ImageHeightException ex) {
+			throw ex;
+		} catch (ImageWidthException ex) {
+			throw ex;
+		} catch (Exception ex) {
+			throw new InternalServerErrorException("Não foi possível validar a imagem.", ex);
 		}
 	}
 
@@ -99,16 +146,21 @@ public class ImageService {
 		return file.getSize() <= MAX_FILE_SIZE;
 	}
 
-	private boolean isHeightValid(MultipartFile file) {
-		return file.getSize() >= ALLOWED_MIN_HEIGHT && file.getSize() <= ALLOWED_MAX_HEIGHT;
+	private boolean isHeightValid(MultipartFile file, int height) {
+		return height >= ALLOWED_MIN_HEIGHT && height <= ALLOWED_MAX_HEIGHT;
 	}
 
-	private boolean isWidthValid(MultipartFile file) {
-		return file.getSize() >= ALLOWED_MIN_WIDTH && file.getSize() <= ALLOWED_MAX_WIDTH;
+	private boolean isWidthValid(MultipartFile file, int width) {
+		return width >= ALLOWED_MIN_WIDTH && width <= ALLOWED_MAX_WIDTH;
 	}
 
-	private boolean isDensityValid(MultipartFile file) {
-		return file.getSize() >= ALLOWED_MIN_DENSITY && file.getSize() <= ALLOWED_MAX_DENSITY;
+	private Path searchImagePath(UUID id) {
+		for (String ext : ALLOWED_EXTENSIONS) {
+			Path path = Paths.get(BASE_PATH + id.toString() + ext);
+			if (Files.exists(path)) {
+				return path;
+			}
+		}
+		throw new ImageNotFoundException("A imagem não foi encontrada. id = " + id);
 	}
-
 }
