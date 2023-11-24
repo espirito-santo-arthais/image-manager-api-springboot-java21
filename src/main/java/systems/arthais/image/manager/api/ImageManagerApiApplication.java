@@ -4,10 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class ImageManagerApiSpringbootJava21Application {
+public class ImageManagerApiApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ImageManagerApiSpringbootJava21Application.class, args);
+		SpringApplication.run(ImageManagerApiApplication.class, args);
 	}
 
 }
