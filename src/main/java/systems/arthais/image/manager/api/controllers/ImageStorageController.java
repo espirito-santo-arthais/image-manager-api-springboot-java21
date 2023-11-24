@@ -19,12 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotNull;
 import systems.arthais.image.manager.api.models.ImageData;
-import systems.arthais.image.manager.api.services.ImageService;
+import systems.arthais.image.manager.api.services.ImageStorageOrquestratorService;
 
 @RestController
 @RequestMapping("/images")
@@ -35,13 +36,13 @@ import systems.arthais.image.manager.api.services.ImageService;
 		@ApiResponse(responseCode = "401", description = "Unauthorized"),
 		@ApiResponse(responseCode = "403", description = "Forbidden"),
 		@ApiResponse(responseCode = "500", description = "Internal Server Error") })
-public class ImageController {
+public class ImageStorageController {
 
-	private final ImageService imageService;
+	private final ImageStorageOrquestratorService imageStorageOrquestratorService;
 
-	public ImageController(ImageService imageService) {
+	public ImageStorageController(ImageStorageOrquestratorService imageStorageOrquestratorService) {
 		super();
-		this.imageService = imageService;
+		this.imageStorageOrquestratorService = imageStorageOrquestratorService;
 	}
 
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -50,8 +51,13 @@ public class ImageController {
 			description = "This method upload a new image to system storage.",
 			responses = { @ApiResponse(responseCode = "201", description = "Created") })
 	@ResponseStatus(HttpStatus.CREATED)
-	public ResponseEntity<String> uploadImage(@NotNull @RequestParam("image") MultipartFile imageFile) {
-		UUID imageId = imageService.uploadImage(imageFile);
+	public ResponseEntity<String> uploadImage(
+			@Parameter(
+					description = "Image file to upload", 
+					required = true)
+	        @NotNull 
+	        @RequestParam("image") MultipartFile imageFile) {
+		UUID imageId = imageStorageOrquestratorService.uploadImage(imageFile);
 		return ResponseEntity.ok(imageId.toString());
 	}
 
@@ -62,9 +68,17 @@ public class ImageController {
 			responses = {
 					@ApiResponse(responseCode = "200", description = "OK"),
 					@ApiResponse(responseCode = "404", description = "Not Found") })
-	public ResponseEntity<String> updateImage(@PathVariable UUID id,
-			@NotNull @RequestParam("image") MultipartFile imageFile) {
-		imageService.updateImage(id, imageFile);
+	public ResponseEntity<String> updateImage(
+			@Parameter(
+					description = "Image file' ID", 
+					required = true)
+			@PathVariable UUID id,
+			@Parameter(
+					description = "Image file that will to replace the current one", 
+					required = true)
+			@NotNull 
+			@RequestParam("image") MultipartFile imageFile) {
+		imageStorageOrquestratorService.updateImage(id, imageFile);
 		return ResponseEntity.ok("Imagem atualizada com sucesso!");
 	}
 
@@ -72,8 +86,12 @@ public class ImageController {
 	@Operation(summary = "Delete image", description = "This method delete a image from the system storage.", responses = {
 			@ApiResponse(responseCode = "200", description = "OK"),
 			@ApiResponse(responseCode = "404", description = "Not Found") })
-	public ResponseEntity<String> deleteImage(@PathVariable UUID id) {
-		imageService.deleteImage(id);
+	public ResponseEntity<String> deleteImage(
+			@Parameter(
+					description = "Image file' ID", 
+					required = true)
+			@PathVariable UUID id) {
+		imageStorageOrquestratorService.deleteImage(id);
 		return ResponseEntity.ok("Imagem excluída com sucesso!");
 	}
 
@@ -81,10 +99,13 @@ public class ImageController {
 	@Operation(summary = "Get image", description = "This method get a image from the system storage.", responses = {
 			@ApiResponse(responseCode = "200", description = "OK"),
 			@ApiResponse(responseCode = "404", description = "Not Found") })
-	public ResponseEntity<InputStreamResource> getImage(@PathVariable UUID id) {
-		ImageData imageData = imageService.getImage(id);
-		return ResponseEntity.ok().contentType(MediaType.parseMediaType(imageData.getContentType()))
-				.body(new InputStreamResource(imageData.getImageStream()));
+	public ResponseEntity<InputStreamResource> getImage(
+			@Parameter(
+					description = "Image file' ID", 
+					required = true)
+			@PathVariable UUID id) {
+		ImageData imageData = imageStorageOrquestratorService.getImage(id);
+		return ResponseEntity.ok().contentType(MediaType.parseMediaType(imageData.getContentType())).body(new InputStreamResource(imageData.getImageStream()));
 	}
 
 }

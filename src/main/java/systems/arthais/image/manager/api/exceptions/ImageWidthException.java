@@ -9,7 +9,6 @@ public class ImageWidthException extends RuntimeException {
 	}
 
 	public ImageWidthException() {
-		super("A largura da imagem não está dentro dos limites permitidos.");
+		super("The image width is outside the permitted limits.");
 	}
-
 }

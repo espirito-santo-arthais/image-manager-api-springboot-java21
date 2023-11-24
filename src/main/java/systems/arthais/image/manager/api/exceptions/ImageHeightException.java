@@ -9,7 +9,6 @@ public class ImageHeightException extends RuntimeException {
 	}
 
 	public ImageHeightException() {
-		super("A altura da imagem não está dentro dos limites permitidos.");
+		super("The image height is not within the allowed limits.");
 	}
-
 }

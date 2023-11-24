@@ -11,8 +11,10 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import lombok.extern.slf4j.Slf4j;
 
 @Configuration
+@Slf4j
 public class OpenApiConfig {
 
 	@Value("${api.info.title}")
@@ -42,14 +44,16 @@ public class OpenApiConfig {
 	@Value("${api.info.licenseUrl}")
 	public String licenseUrl;
 
-	@Value("${api.auth.header.name}")
-	private String apiAuthHeaderName;
+	@Value("${api.auth.header.token.key}")
+	private String apiAuthHeaderTokenKey;
 
     @Bean
     OpenAPI customOpenAPI() {
     	final String securitySchemeName = "apiKey";
+    	
+        log.info("Configuring OpenAPI with title: {}", title);
 
-		return new OpenAPI()
+        OpenAPI openApi = new OpenAPI()
 	            .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
 	            .components(new Components()
 	                .addSecuritySchemes(
@@ -58,7 +62,7 @@ public class OpenApiConfig {
 	                        .name(securitySchemeName)
 	                        .type(SecurityScheme.Type.APIKEY)
 	                        .in(SecurityScheme.In.HEADER)
-	                        .name(apiAuthHeaderName)))
+	                        .name(apiAuthHeaderTokenKey)))
 	            .info(new Info()
 				.title(title)
 				.description(description)
@@ -72,5 +76,9 @@ public class OpenApiConfig {
 						.name(license)
 						.url(licenseUrl))
 				);
+		
+        log.info("OpenAPI configuration completed successfully.");
+
+        return openApi;
 	}
 }

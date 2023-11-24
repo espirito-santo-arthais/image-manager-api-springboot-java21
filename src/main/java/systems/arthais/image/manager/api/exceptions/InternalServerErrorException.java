@@ -11,13 +11,12 @@ public class InternalServerErrorException extends RuntimeException {
 	public InternalServerErrorException(String message, Throwable cause) {
 		super(message, cause);
 	}
-
+	
 	public InternalServerErrorException() {
-		super("Não foi possível realizar a operação.");
+	    super("The operation could not be performed.");
 	}
 
 	public InternalServerErrorException(Throwable cause) {
-		super("Não foi possível realizar a operação.", cause);
+	    super("The operation could not be performed.", cause);
 	}
-
 }

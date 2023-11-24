@@ -11,25 +11,38 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
 import org.springframework.stereotype.Component;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Component
+@Slf4j
 public class RequestHeaderAuthenticationProvider implements AuthenticationProvider {
 
-	@Value("${api.auth.secret}")
-	private String apiAuthSecret;
+    @Value("${api.auth.header.token.value}")
+    private String apiAuthHeaderTokenValue;
 
-	@Override
-	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-		String requestApiAuthSecret = String.valueOf(authentication.getPrincipal());
+    @Override
+    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+        String requestApiAuthSecret = String.valueOf(authentication.getPrincipal());
 
-		if (StringUtils.isBlank(requestApiAuthSecret) || !requestApiAuthSecret.equals(apiAuthSecret)) {
-			throw new BadCredentialsException("Bad request header credentials.");
-		}
+        log.debug("Authenticating request with token: {}", requestApiAuthSecret);
 
-		return new PreAuthenticatedAuthenticationToken(authentication.getPrincipal(), null, new ArrayList<>());
-	}
+        if (StringUtils.isBlank(requestApiAuthSecret)) {
+            log.warn("Request header token is blank.");
+            throw new BadCredentialsException("Bad request header credentials - token is blank.");
+        }
 
-	@Override
-	public boolean supports(Class<?> authentication) {
-		return authentication.equals(PreAuthenticatedAuthenticationToken.class);
-	}
+        if (!requestApiAuthSecret.equals(apiAuthHeaderTokenValue)) {
+            log.warn("Invalid request header token received.");
+            throw new BadCredentialsException("Bad request header credentials - token mismatch.");
+        }
+
+        log.info("Request authenticated successfully with token: {}", requestApiAuthSecret);
+
+        return new PreAuthenticatedAuthenticationToken(authentication.getPrincipal(), null, new ArrayList<>());
+    }
+
+    @Override
+    public boolean supports(Class<?> authentication) {
+        return authentication.equals(PreAuthenticatedAuthenticationToken.class);
+    }
 }

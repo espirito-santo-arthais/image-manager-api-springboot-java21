@@ -9,7 +9,6 @@ public class ImageSizeException extends RuntimeException {
 	}
 
 	public ImageSizeException() {
-		super("A quantidade de bytes da imagem não está dentro dos limites permitidos.");
+		super("The image size exceeds the allowed limit.");
 	}
-
 }

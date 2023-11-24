@@ -9,6 +9,6 @@ public class UnsupportedImageFormatException extends RuntimeException {
 	}
 
 	public UnsupportedImageFormatException() {
-		super("O formato de arquivo da imagem não é suportado.");
+		super("The image file format is not supported.");
 	}
 }
